@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitoreo Predictivo de Motor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-8">
+
+  <!-- PANTALLA DE LOGIN -->
+  <div id="pantalla-login" class="min-h-[80vh] flex items-center justify-center">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md shadow-2xl space-y-6">
+      <div class="text-center">
+        <h1 class="text-2xl font-bold text-white">Acceso al Sistema</h1>
+        <p class="text-sm text-slate-400 mt-1">Monitoreo Predictivo de Motor</p>
+      </div>
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-sm text-slate-300 mb-1">Correo</label>
+          <input type="email" id="login-email" required placeholder="admin@motor.com"
+            class="w-full px-4 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-sky-500">
+        </div>
+        <div>
+          <label class="block text-sm text-slate-300 mb-1">Contraseña</label>
+          <input type="password" id="login-password" required placeholder="••••••••"
+            class="w-full px-4 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-sky-500">
+        </div>
+        <p id="login-error" class="text-sm text-red-400 hidden"></p>
+        <button type="submit"
+          class="w-full py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold transition">
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PRINCIPAL (OCULTO HASTA INICIAR SESIÓN) -->
+  <div id="dashboard" class="max-w-6xl mx-auto space-y-6 hidden">
+    
+    <!-- Encabezado -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-white">Monitoreo de Motor en Tiempo Real</h1>
+        <p id="ultima-actualizacion" class="text-sm text-slate-400 mt-1">Conectando con la nube...</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800">
+          <span class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-sm font-medium text-emerald-400">EN VIVO</span>
+        </div>
+        <button onclick="cerrarSesion()" class="px-4 py-2 text-sm rounded-lg bg-slate-800 hover:bg-red-900/70 text-slate-300 hover:text-white transition">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+
+    <!-- Banner de Alarma -->
+    <div id="banner-alarma" class="p-4 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 font-semibold text-center text-lg transition-all">
+      ESTADO: MOTOR OPERANDO CON NORMALIDAD
+    </div>
+
+    <!-- Tarjetas de Sensores -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+        <p class="text-slate-400 text-sm font-medium">Temperatura</p>
+        <p id="val-temp" class="text-4xl font-bold text-sky-400 mt-2">-- °C</p>
+        <p class="text-xs text-slate-500 mt-2">Límite crítico: 50.0 °C</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+        <p class="text-slate-400 text-sm font-medium">Corriente</p>
+        <p id="val-corr" class="text-4xl font-bold text-amber-400 mt-2">-- A</p>
+        <p class="text-xs text-slate-500 mt-2">Consumo eléctrico</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+        <p class="text-slate-400 text-sm font-medium">Voltaje</p>
+        <p id="val-volt" class="text-4xl font-bold text-violet-400 mt-2">-- V</p>
+        <p class="text-xs text-slate-500 mt-2">Tensión de alimentación</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+        <p class="text-slate-400 text-sm font-medium">Vibración</p>
+        <p id="val-vib" class="text-4xl font-bold text-rose-400 mt-2">-- mm/s</p>
+        <p class="text-xs text-slate-500 mt-2">Estabilidad mecánica</p>
+      </div>
+    </div>
+
+    <!-- Gráfica e Historial -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <h2 class="text-lg font-semibold text-white">Comportamiento Histórico (Temperatura)</h2>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="cargarModo('vivo')" id="btn-vivo" class="px-3 py-1.5 text-sm rounded-lg bg-sky-600 text-white font-medium">En Vivo</button>
+          <button onclick="cargarModo('24h')" id="btn-24h" class="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">24 Horas</button>
+          <button onclick="cargarModo('7d')" id="btn-7d" class="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">7 Días</button>
+          <button onclick="cargarModo('30d')" id="btn-30d" class="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">30 Días</button>
+        </div>
+      </div>
+      <div class="relative h-72 w-full">
+        <canvas id="graficaMotor"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- CONFIGURACIÓN DE SUPABASE ---
+    const SUPABASE_URL = 'https://mgyklcmcvzjzdtymfpwu.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_bD4zolf-fH-DDAGQKCZw3A_PI8TyNyH';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let modoActual = 'vivo';
+    let canalRealtime = null;
+
+    // --- CONFIGURACIÓN DE LA GRÁFICA ---
+    const ctx = document.getElementById('graficaMotor').getContext('2d');
+    const grafica = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Temperatura (°C)',
+          data: [],
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+        },
+        plugins: { legend: { labels: { color: '#e2e8f0' } } }
+      }
+    });
+
+    // --- AUTENTICACIÓN ---
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const errorMsg = document.getElementById('login-error');
+      errorMsg.classList.add('hidden');
+
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if (error) {
+        errorMsg.innerText = 'Correo o contraseña incorrectos.';
+        errorMsg.classList.remove('hidden');
+      } else {
+        mostrarDashboard();
+      }
+    });
+
+    async function cerrarSesion() {
+      await db.auth.signOut();
+      if (canalRealtime) {
+        db.removeChannel(canalRealtime);
+        canalRealtime = null;
+      }
+      document.getElementById('dashboard').classList.add('hidden');
+      document.getElementById('pantalla-login').classList.remove('hidden');
+    }
+
+    function mostrarDashboard() {
+      document.getElementById('pantalla-login').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      cargarModo('vivo');
+
+      if (!canalRealtime) {
+        canalRealtime = db.channel('canal-motor')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lecturas_motor' }, payload => {
+            const nuevo = payload.new;
+            actualizarTarjetas(nuevo);
+            if (modoActual === 'vivo') {
+              grafica.data.labels.push(formatearHora(nuevo.fecha_hora, false));
+              grafica.data.datasets[0].data.push(nuevo.temperatura);
+              if (grafica.data.labels.length > 30) {
+                grafica.data.labels.shift();
+                grafica.data.datasets[0].data.shift();
+              }
+              grafica.update();
+            }
+          })
+          .subscribe();
+      }
+    }
+
+    function actualizarTarjetas(dato) {
+      document.getElementById('val-temp').innerText = `${Number(dato.temperatura).toFixed(2)} °C`;
+      document.getElementById('val-corr').innerText = `${Number(dato.corriente).toFixed(2)} A`;
+      document.getElementById('val-volt').innerText = `${Number(dato.voltaje).toFixed(2)} V`;
+      document.getElementById('val-vib').innerText  = `${Number(dato.vibracion).toFixed(2)} mm/s`;
+
+      const fecha = new Date(dato.fecha_hora).toLocaleString('es-MX');
+      document.getElementById('ultima-actualizacion').innerText = `Última lectura: ${fecha}`;
+
+      const banner = document.getElementById('banner-alarma');
+      if (dato.estado_alarma == 1) {
+        banner.className = 'p-4 rounded-xl bg-red-950/80 border border-red-600 text-red-200 font-bold text-center text-lg animate-pulse';
+        banner.innerText = '¡ALERTA CRÍTICA: SOBRECALENTAMIENTO DETECTADO!';
+      } else {
+        banner.className = 'p-4 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 font-semibold text-center text-lg';
+        banner.innerText = 'ESTADO: MOTOR OPERANDO CON NORMALIDAD';
+      }
+    }
+
+    function formatearHora(fechaISO, incluirDia) {
+      const f = new Date(fechaISO);
+      if (incluirDia) {
+        return f.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) + ' ' + f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      }
+      return f.toLocaleTimeString('es-MX');
+    }
+
+    async function cargarModo(modo) {
+      modoActual = modo;
+      ['vivo', '24h', '7d', '30d'].forEach(m => {
+        const btn = document.getElementById('btn-' + m);
+        btn.className = m === modo
+          ? 'px-3 py-1.5 text-sm rounded-lg bg-sky-600 text-white font-medium'
+          : 'px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700';
+      });
+
+      let query = db.from('lecturas_motor').select('*').order('fecha_hora', { ascending: false });
+
+      if (modo === 'vivo') {
+        query = query.limit(30);
+      } else {
+        const ahora = new Date();
+        if (modo === '24h') ahora.setHours(ahora.getHours() - 24);
+        if (modo === '7d')  ahora.setDate(ahora.getDate() - 7);
+        if (modo === '30d') ahora.setDate(ahora.getDate() - 30);
+        query = query.gte('fecha_hora', ahora.toISOString()).limit(1000);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return console.error(error);
+
+      const datosOrdenados = data.reverse();
+      if (datosOrdenados.length > 0 && modo === 'vivo') {
+        actualizarTarjetas(datosOrdenados[datosOrdenados.length - 1]);
+      }
+
+      const incluirDia = modo !== 'vivo';
+      grafica.data.labels = datosOrdenados.map(d => formatearHora(d.fecha_hora, incluirDia));
+      grafica.data.datasets[0].data = datosOrdenados.map(d => d.temperatura);
+      grafica.update();
+    }
+
+    // Verificar si ya había una sesión abierta al cargar la página
+    db.auth.getSession().then(({ data: { session } }) => {
+      if (session) mostrarDashboard();
+    });
+  </script>
+</body>
+</html>

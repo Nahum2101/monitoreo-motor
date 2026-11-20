@@ -48,8 +48,8 @@
       </div>
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800">
-          <span class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="text-sm font-medium text-emerald-400">EN VIVO</span>
+          <span id="punto-vivo" class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="texto-vivo" class="text-sm font-medium text-emerald-400">EN VIVO</span>
         </div>
         <button onclick="cerrarSesion()" class="px-4 py-2 text-sm rounded-lg bg-slate-800 hover:bg-red-900/70 text-slate-300 hover:text-white transition">
           Cerrar sesión
@@ -112,6 +112,8 @@
 
     let modoActual = 'vivo';
     let canalRealtime = null;
+    let ultimaLecturaMs = 0;
+    let vigilanteConexion = null;
 
     // --- CONFIGURACIÓN DE LA GRÁFICA ---
     const ctx = document.getElementById('graficaMotor').getContext('2d');
@@ -160,6 +162,10 @@
     });
 
     async function cerrarSesion() {
+      if (vigilanteConexion) {
+        clearInterval(vigilanteConexion);
+        vigilanteConexion = null;
+      }
       await db.auth.signOut();
       if (canalRealtime) {
         db.removeChannel(canalRealtime);
@@ -191,9 +197,18 @@
           })
           .subscribe();
       }
+
+      if (!vigilanteConexion) {
+        vigilanteConexion = setInterval(verificarConexion, 3000);
+      }
     }
 
     function actualizarTarjetas(dato) {
+      ultimaLecturaMs = new Date(dato.fecha_hora).getTime();
+      document.getElementById('punto-vivo').className = 'h-3 w-3 rounded-full bg-emerald-500 animate-pulse';
+      document.getElementById('texto-vivo').className = 'text-sm font-medium text-emerald-400';
+      document.getElementById('texto-vivo').innerText = 'EN VIVO';
+
       document.getElementById('val-temp').innerText = `${Number(dato.temperatura).toFixed(2)} °C`;
       document.getElementById('val-corr').innerText = `${Number(dato.corriente).toFixed(2)} A`;
       document.getElementById('val-volt').innerText = `${Number(dato.voltaje).toFixed(2)} V`;
@@ -209,6 +224,21 @@
       } else {
         banner.className = 'p-4 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 font-semibold text-center text-lg';
         banner.innerText = 'ESTADO: MOTOR OPERANDO CON NORMALIDAD';
+      }
+    }
+
+    function verificarConexion() {
+      if (ultimaLecturaMs === 0) return;
+      const segundosSinDatos = (Date.now() - ultimaLecturaMs) / 1000;
+
+      if (segundosSinDatos > 10) {
+        document.getElementById('punto-vivo').className = 'h-3 w-3 rounded-full bg-red-500';
+        document.getElementById('texto-vivo').className = 'text-sm font-medium text-red-400';
+        document.getElementById('texto-vivo').innerText = 'DESCONECTADO';
+
+        const banner = document.getElementById('banner-alarma');
+        banner.className = 'p-4 rounded-xl bg-amber-950/80 border border-amber-500 text-amber-200 font-bold text-center text-lg';
+        banner.innerText = '⚠️ ALERTA: SIN CONEXIÓN CON EL ESP32 (Posible corte de energía o Wi-Fi)';
       }
     }
 

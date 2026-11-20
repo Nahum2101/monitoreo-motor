@@ -229,16 +229,22 @@
 
     function verificarConexion() {
       if (ultimaLecturaMs === 0) return;
-      const segundosSinDatos = (Date.now() - ultimaLecturaMs) / 1000;
+  const segundosSinDatos = (Date.now() - ultimaLecturaMs) / 1000;
 
-      if (segundosSinDatos > 10) {
-        document.getElementById('punto-vivo').className = 'h-3 w-3 rounded-full bg-red-500';
-        document.getElementById('texto-vivo').className = 'text-sm font-medium text-red-400';
-        document.getElementById('texto-vivo').innerText = 'DESCONECTADO';
+  if (segundosSinDatos > 10) {
+    document.getElementById('punto-vivo').className = 'h-3 w-3 rounded-full bg-red-500';
+    document.getElementById('texto-vivo').className = 'text-sm font-medium text-red-400';
+    document.getElementById('texto-vivo').innerText = 'DESCONECTADO';
 
-        const banner = document.getElementById('banner-alarma');
-        banner.className = 'p-4 rounded-xl bg-amber-950/80 border border-amber-500 text-amber-200 font-bold text-center text-lg';
-        banner.innerText = '⚠️ ALERTA: SIN CONEXIÓN CON EL ESP32 (Posible corte de energía o Wi-Fi)';
+    const banner = document.getElementById('banner-alarma');
+    banner.className = 'p-4 rounded-xl bg-amber-950/80 border border-amber-500 text-amber-200 font-bold text-center text-lg';
+    banner.innerText = '⚠️ ALERTA: SIN CONEXIÓN CON EL ESP32 (Posible corte de energía o Wi-Fi)';
+
+    // Poner todos los sensores en 0 al desconectarse
+    document.getElementById('val-temp').innerText = '0.00 °C';
+    document.getElementById('val-corr').innerText = '0.00 A';
+    document.getElementById('val-volt').innerText = '0.00 V';
+    document.getElementById('val-vib').innerText  = '0.00 mm/s';
       }
     }
 
